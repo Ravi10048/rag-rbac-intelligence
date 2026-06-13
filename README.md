@@ -115,7 +115,10 @@ stages call the same predicate so they can't drift apart.
 | `david@acme.com` | ceo | executive | restricted | `*` (wildcard) |
 
 Picked specifically so the demo can show **the same question producing four
-different answers** based on who is asking.
+different answers** based on who is asking. The UI has a **🔀 Compare two roles**
+toggle that asks one question as two personas at once and renders the answers —
+and their per-role audit trails — side by side, so the access-control contrast
+is visible in a single screen.
 
 ---
 

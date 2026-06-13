@@ -17,11 +17,66 @@ relevant chunks back with light prose around them.
 
 from __future__ import annotations
 
+import re
 import textwrap
 from typing import Protocol
 
 from src import config
 from src.data_models import RAGResponse, RetrievedChunk, User
+
+
+def _dedupe_answer(text: str) -> str:
+    """Collapse near-duplicate sentences/bullets that small local models sometimes
+    emit (e.g. restating "the context does not mention X" five different ways).
+
+    Splits the answer into bullet/sentence units and keeps the first of any group
+    whose word-set overlaps an earlier kept unit by >= 80% (Jaccard) — so genuinely
+    distinct facts survive while reworded repeats are dropped. Order is preserved.
+    """
+    text = (text or "").strip()
+    if not text:
+        return text
+
+    has_bullets = "•" in text or bool(re.search(r"(^|\n)\s*[-*]\s+", text))
+    if has_bullets:
+        units = re.split(r"•|\n\s*[-*]\s+|\n{2,}", text)
+    else:
+        units = re.split(r"(?<=[.!?])\s+", text)
+
+    # "No information" restatements: small models often phrase the same "I don't
+    # know" a dozen ways. We keep at most ONE of them (the first), regardless of
+    # exact wording, since none of them carry a distinct fact.
+    no_info = re.compile(
+        r"\b(?:not (?:mentioned|provided|found|available|specified|present|stated|included)"
+        r"|does(?:n't| not) (?:mention|provide|contain|include|specify|state|cover|have)"
+        r"|do(?:n't| not) (?:mention|provide|contain|include)"
+        r"|no (?:information|details?|mention|data|reference)"
+        r"|cannot|can't|could not|couldn't) ",
+        re.IGNORECASE,
+    )
+
+    kept: list[str] = []
+    kept_tokens: list[set[str]] = []
+    seen_no_info = False
+    for unit in units:
+        u = unit.strip().strip("-*• \t")
+        if not u:
+            continue
+        if no_info.search(u):
+            if seen_no_info:
+                continue  # already have one "no information" line
+            seen_no_info = True
+        toks = set(re.sub(r"[^a-z0-9 ]", " ", u.lower()).split())
+        if toks and any(
+            kt and len(toks & kt) / len(toks | kt) >= 0.8 for kt in kept_tokens
+        ):
+            continue  # near-duplicate of something we already kept
+        kept.append(u)
+        kept_tokens.append(toks)
+
+    if not kept:
+        return text
+    return "\n".join(f"- {u}" for u in kept) if has_bullets else " ".join(kept)
 
 
 SYSTEM_PROMPT = textwrap.dedent("""\
@@ -241,7 +296,7 @@ class Generator:
         return RAGResponse(
             query=query,
             user=user,
-            answer=raw.strip(),
+            answer=_dedupe_answer(raw),
             citations=citations,
             retrieved=retrieved,
             routed_to=intents,
