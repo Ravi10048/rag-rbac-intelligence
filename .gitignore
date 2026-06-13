@@ -1,0 +1,27 @@
+# Local virtualenv
+.venv/
+venv/
+*.egg-info/
+
+# Generated data and indexes (rebuilt via scripts/)
+.chroma/
+data/documents/
+data/databases/
+data/logs/
+data/policies/
+# Note: we keep `data/` itself so the directory layout is clear,
+# but the generated artefacts are recreated by `scripts/generate_data.py`.
+
+# Secrets
+.env
+
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS
+.DS_Store

@@ -1,0 +1,25 @@
+# Core RAG dependencies
+chromadb>=0.4.22                 # Local vector DB - persists to disk, no server needed
+sentence-transformers>=2.2.2     # For local embeddings (all-MiniLM-L6-v2)
+numpy>=1.24
+
+# Document loaders
+pypdf>=4.0                       # PDF text extraction
+pandas>=2.0                      # CSV + tabular handling
+
+# Synthetic data generation (only needed by scripts/generate_data.py)
+reportlab>=4.0                   # Building synthetic PDF documents
+faker>=20.0                      # Plausible-looking fake names / values
+
+# Pluggable LLM backends - all optional. The pipeline falls back to an
+# extractive answer if none are available, so the system runs out-of-the-box.
+openai>=1.0; python_version >= "3.8"
+anthropic>=0.18; python_version >= "3.8"
+requests>=2.31                   # Used to talk to local Ollama if available
+
+# Utilities
+python-dotenv>=1.0               # Load .env for API keys when present
+rich>=13.0                       # Pretty CLI output in the demo
+
+# UI (optional - only if you want to run the Streamlit demo app)
+streamlit>=1.30                  # Interactive web demo (streamlit_app.py)
