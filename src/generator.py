@@ -4,10 +4,11 @@ We define a tiny `Backend` protocol with one method: `generate(prompt) -> str`.
 At startup, the pipeline probes the available backends in order and picks
 the first one that works:
 
-    1. OpenAI       - if OPENAI_API_KEY is set
-    2. Anthropic    - if ANTHROPIC_API_KEY is set
-    3. Ollama       - if a local server responds on the configured port
-    4. Fallback     - deterministic extractive answer (always works)
+    1. Groq         - if GROQ_API_KEY is set (free, fast, hosted, OpenAI-compatible)
+    2. OpenAI       - if OPENAI_API_KEY is set
+    3. Anthropic    - if ANTHROPIC_API_KEY is set
+    4. Ollama       - if a local server responds on the configured port
+    5. Fallback     - deterministic extractive answer (always works)
 
 The fallback is the reason the judge can `python -m src.rag_pipeline` and
 see a working demo with no setup at all. The fallback isn't fancy but it
@@ -107,6 +108,32 @@ class Backend(Protocol):
     name: str
     model_name: str
     def generate(self, system: str, user: str) -> str: ...
+
+
+class GroqBackend:
+    """Groq's OpenAI-compatible chat API: free, very fast, hosted. Preferred when
+    GROQ_API_KEY is set — nothing to install locally and it works in cloud deploys.
+    Reuses the `openai` client (already a dependency) pointed at Groq's base URL."""
+
+    name = "groq"
+    model_name = config.GROQ_MODEL
+
+    def __init__(self) -> None:
+        from openai import OpenAI
+        if not config.GROQ_API_KEY:
+            raise RuntimeError("GROQ_API_KEY not set")
+        self.client = OpenAI(api_key=config.GROQ_API_KEY, base_url=config.GROQ_BASE_URL)
+
+    def generate(self, system: str, user: str) -> str:
+        resp = self.client.chat.completions.create(
+            model=config.GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=0.1,   # grounded answers, not creativity
+        )
+        return resp.choices[0].message.content or ""
 
 
 class OpenAIBackend:
@@ -211,6 +238,8 @@ def pick_backend() -> Backend:
     has no failure mode, so the function always returns something.
     """
     candidates: list[type[Backend]] = []
+    if config.GROQ_API_KEY:
+        candidates.append(GroqBackend)
     if config.OPENAI_API_KEY:
         candidates.append(OpenAIBackend)
     if config.ANTHROPIC_API_KEY:

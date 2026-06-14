@@ -36,10 +36,12 @@ pip install -r requirements.txt
 python scripts/generate_data.py    # synthetic dataset
 python scripts/build_index.py      # embed + index
 
-# 2. Start local LLM (open-source, free, no API key)
-brew install ollama                # one-time
-ollama serve &
-ollama pull llama3.2:1b            # ~1.3 GB
+# 2. Pick an LLM (any one — all free)
+#   a) Groq (recommended: hosted, fast, nothing to install)
+echo "GROQ_API_KEY=gsk_..." >> .env   # free key: https://console.groq.com/keys
+#   b) OR a fully-local open-source model via Ollama:
+#      brew install ollama && ollama serve & && ollama pull llama3.2:1b
+#   c) OR nothing — it falls back to a deterministic extractive answer
 
 # 3. Launch the UI
 streamlit run streamlit_app.py
@@ -77,9 +79,9 @@ Hard-refresh with `Cmd+Shift+R` if anything looks stale.
              v
        +------------+   ALLOWED   +-----------+   +-----------+
        | Generator  +-------------> backend   +---> answer    |
-       |            |             | (Ollama / |   | + cites   |
+       |            |             | (Groq /   |   | + cites   |
        |            |             | OpenAI /  |   | + conf    |
-       |            |             | Anthropic)|   +-----------+
+       |            |             | Ollama)   |   +-----------+
        +-----+------+             +-----------+
              |
              | DENIED (everything)
@@ -134,7 +136,15 @@ python scripts/generate_data.py    # builds the synthetic dataset
 python scripts/build_index.py      # embeds + indexes (downloads ~80MB embedding model)
 ```
 
-### 2. Start the local LLM
+### 2. Choose an LLM backend (all free)
+
+**Recommended — Groq** (hosted, fast, nothing to install):
+
+```bash
+echo "GROQ_API_KEY=gsk_..." >> .env   # grab a free key at https://console.groq.com/keys
+```
+
+**Or fully local — Ollama** (open-source model on your machine, no API key):
 
 ```bash
 brew install ollama                # one-time, if not already installed
@@ -142,9 +152,9 @@ ollama serve &                     # start the local server
 ollama pull llama3.2:1b            # download the model (~1.3 GB)
 ```
 
-The pipeline auto-detects Ollama on startup. To use OpenAI/Anthropic instead,
-set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` in `.env` — the generator probes
-those first.
+The generator probes backends in order — **Groq → OpenAI → Anthropic → Ollama →
+extractive fallback** — and uses the first one configured. With none set it still
+runs end-to-end via the deterministic extractive answer (no key, no model).
 
 ### 3. Open the UI
 
@@ -593,7 +603,7 @@ reviewer.
 | **Secure Access Control** | Strict RBAC enforcement | [src/rbac.py](src/rbac.py) two-stage | TC04, TC05, TC13 all REFUSED |
 | | Restricted document access | 3 gates (clearance + dept + tag-policy) | TC08 (dept), TC10 (clearance), TC04 (tag policy) |
 | | Safe handling of sensitive queries | LLM never called on refusal — see `_refusal_response` in [src/generator.py](src/generator.py) | TC04 status: `LLM was not called` |
-| **Accurate Answer Generation** | Grounded responses | System prompt + Ollama `llama3.2:1b` (open-source) | Every answer carries `[DOC-ID::chunk]` citations |
+| **Accurate Answer Generation** | Grounded responses | System prompt + pluggable LLM (Groq / OpenAI / Anthropic / Ollama) | Every answer carries `[DOC-ID::chunk]` citations |
 | | Source attribution | Bracketed chunk ids, full Citations section | TC03 cites `DB-EMPLOYEES::row0` |
 | | Minimal hallucinations | Temperature 0.1, prompt forbids prior knowledge | TC12 returns low confidence rather than inventing |
 | **Explainability** | Retrieval traceability | Per-chunk audit trail + 7-stage pipeline trace | UI: "Retrieval traceability" + "Full pipeline trace" |
@@ -619,7 +629,7 @@ reviewer.
 │   ├── vector_store.py        # ChromaDB persistence
 │   ├── router.py              # query intent classifier
 │   ├── retriever.py           # hybrid retrieval with RBAC
-│   ├── generator.py           # pluggable LLM (Ollama / OpenAI / Anthropic / fallback)
+│   ├── generator.py           # pluggable LLM (Groq / OpenAI / Anthropic / Ollama / fallback)
 │   └── rag_pipeline.py        # orchestrator + CLI + trace construction
 ├── scripts/
 │   ├── generate_data.py       # synthetic dataset builder

@@ -77,6 +77,14 @@ SENSITIVITY_LEVELS = {
 # The generator probes these in order at startup. The first one that has a
 # usable API key / reachable server wins. If none do, the pipeline falls back
 # to a deterministic extractive answer (see generator.FallbackBackend).
+#
+# Groq is the preferred backend when a key is set: a free, very fast, hosted
+# OpenAI-compatible API — no local model to install (unlike Ollama) and it works
+# in cloud deploys too. Get a free key at https://console.groq.com/keys
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
