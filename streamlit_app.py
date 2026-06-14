@@ -318,12 +318,15 @@ with st.sidebar:
         "Tell me about the payment-staging credit card exposure incident.",
         "Summarise Q4 revenue and any major security findings.",
     ]
-    # Clicking a sample button fills the query box AND auto-submits on the next rerun.
+    # Clicking a sample button fills the query box AND auto-submits. We do NOT call
+    # st.rerun() here: the button click already triggers a rerun, and the main panel
+    # (rendered after the sidebar) picks up the new query + auto_submit on that same
+    # pass. Calling st.rerun() before the main-panel widgets are instantiated would
+    # make Streamlit garbage-collect their state — silently switching off compare mode.
     for q in sample_queries:
         if st.button(q, use_container_width=True, key=f"sample_{hash(q)}"):
             st.session_state["query_text"] = q
             st.session_state["auto_submit"] = True
-            st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -348,8 +351,11 @@ query = st.text_input(
 # Action row: Ask + the compare toggle. When compare is on, choose a second role.
 ctrl = st.columns([1, 2, 3])
 ask = ctrl[0].button("Ask", type="primary", use_container_width=True)
-compare = ctrl[1].toggle("🔀 Compare two roles", help="Ask the same question as two roles and "
-                                                       "see the answers side by side.")
+# Explicit keys so the toggle + second-role selection persist across the rerun that
+# a sample-query button or the Ask button triggers (otherwise compare mode would
+# silently switch off the moment you run a query).
+compare = ctrl[1].toggle("🔀 Compare two roles", key="compare_mode",
+                         help="Ask the same question as two roles and see the answers side by side.")
 compare_email = None
 if compare:
     others = [e for e in sidebar_options if e != selected_email]
@@ -359,6 +365,7 @@ if compare:
         format_func=lambda e: sidebar_options[e],
         index=0,
         label_visibility="collapsed",
+        key="compare_email",
     )
 
 # Auto-submit flag set by sidebar sample-query buttons.
@@ -372,6 +379,7 @@ with st.expander("🔧 Debug info (internal state)"):
     st.caption("These values reset on every rerun.")
     st.json({
         "selected_email": selected_email,
+        "compare": compare,
         "compare_email": compare_email,
         "user_role": user.role,
         "user_clearance": user.clearance,
