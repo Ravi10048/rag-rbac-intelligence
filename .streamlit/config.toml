@@ -1,0 +1,13 @@
+# Streamlit configuration (applies locally and on Streamlit Community Cloud).
+
+[server]
+# The heavy ML deps (transformers/torch) make Streamlit's source file-watcher
+# noisy and slow on startup (it tries to introspect every transformers submodule).
+# We don't need hot-reload in a deployed demo, so turn it off for a clean, fast boot.
+fileWatcherType = "none"
+
+[theme]
+# Pin the look so it's consistent regardless of the viewer's browser preference,
+# and match the indigo accent used in the app's custom CSS.
+base = "light"
+primaryColor = "#4f46e5"

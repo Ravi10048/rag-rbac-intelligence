@@ -1,5 +1,6 @@
 # Core RAG dependencies
 chromadb>=0.4.22                 # Local vector DB - persists to disk, no server needed
+pysqlite3-binary; sys_platform == "linux"   # Streamlit Cloud's system sqlite < 3.35; Chroma needs >=3.35 (Linux-only wheel)
 sentence-transformers>=2.2.2     # For local embeddings (all-MiniLM-L6-v2)
 numpy>=1.24
 

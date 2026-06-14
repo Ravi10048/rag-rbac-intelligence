@@ -286,6 +286,7 @@ def generate_document_metadata() -> None:
             "tags": ["siem", "security", "incident", "log"],
         },
     }
+    config.POLICIES_DIR.mkdir(parents=True, exist_ok=True)
     (config.POLICIES_DIR / "documents_metadata.json").write_text(
         json.dumps(metadata, indent=2)
     )
@@ -339,6 +340,7 @@ def generate_users() -> None:
             "accessible_departments": [],
         },
     }
+    config.POLICIES_DIR.mkdir(parents=True, exist_ok=True)
     (config.POLICIES_DIR / "user_roles.json").write_text(
         json.dumps(users, indent=2)
     )
@@ -376,6 +378,7 @@ def generate_access_policies() -> None:
             "allowed_departments": ["engineering", "executive"],
         },
     }
+    config.POLICIES_DIR.mkdir(parents=True, exist_ok=True)
     (config.POLICIES_DIR / "access_policies.json").write_text(
         json.dumps(policies, indent=2)
     )

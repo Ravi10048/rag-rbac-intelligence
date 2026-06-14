@@ -12,9 +12,29 @@ two roles lands in a single screen.
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
+
+# Streamlit Community Cloud ships a system sqlite3 older than what ChromaDB needs
+# (>= 3.35). Swap in the bundled pysqlite3 (Linux wheel) before anything imports
+# chromadb. No-op locally / on macOS where pysqlite3 isn't installed.
+try:
+    __import__("pysqlite3")
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except Exception:
+    pass
+
+# Bridge Streamlit "Secrets" → environment variables BEFORE importing src.config
+# (which reads os.getenv at import time). Lets GROQ_API_KEY set in the Streamlit
+# Cloud Secrets UI reach the generator. setdefault so a real env / .env wins.
+try:
+    import streamlit as _st_secrets
+    for _k in _st_secrets.secrets:
+        os.environ.setdefault(_k, str(_st_secrets.secrets[_k]))
+except Exception:
+    pass
 
 # Make `src` importable when streamlit is invoked from the project root.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -67,8 +87,31 @@ st.markdown(
 # ---------------------------------------------------------------------------
 # Building the pipeline loads the embedding model + opens ChromaDB. That's
 # ~10s on cold start, so we cache it across Streamlit reruns.
+@st.cache_resource(show_spinner="Preparing demo data + building the index (first run only)...")
+def ensure_index() -> bool:
+    """On a fresh deploy the gitignored data/ + .chroma don't exist yet. Build them
+    once: synthetic dataset -> embed -> persist to Chroma. Cached, so it runs a
+    single time per server (subsequent reruns are instant)."""
+    from src import config
+
+    docs_ready = config.DOCS_DIR.exists() and any(config.DOCS_DIR.glob("*.pdf"))
+    if not docs_ready:
+        sys.path.insert(0, str(config.PROJECT_ROOT / "scripts"))
+        import generate_data  # scripts/generate_data.py
+        generate_data.main()
+
+    from src.vector_store import VectorStore
+    store = VectorStore()
+    if store.count() == 0:
+        from src import ingestion
+        store.reset()
+        store.add_chunks(ingestion.load_all())
+    return True
+
+
 @st.cache_resource(show_spinner="Loading RAG pipeline (one-time cold start)...")
 def get_pipeline() -> RAGPipeline:
+    ensure_index()  # make sure data + index exist before the pipeline opens Chroma
     return RAGPipeline()
 
 
@@ -276,6 +319,9 @@ def render_compare_column(resp: RAGResponse) -> None:
 # ---------------------------------------------------------------------------
 # Sidebar - persona switcher
 # ---------------------------------------------------------------------------
+# Build the dataset + index up front (on a fresh deploy it doesn't exist yet) —
+# the RBAC engine below reads the policy files immediately, before any query.
+ensure_index()
 rbac = get_rbac()
 
 # We index personas by email rather than user_id because the user_id field
